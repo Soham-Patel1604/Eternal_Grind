@@ -1,0 +1,16 @@
+rules_version='2'
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // User documents - only accessible by the authenticated user
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Fallback rule for development (expires in 6 months)
+    // TODO: Remove this and add specific rules for all collections before production
+    match /{document=**} {
+      allow read, write: if request.time < timestamp.date(2026, 9, 1);
+    }
+  }
+}

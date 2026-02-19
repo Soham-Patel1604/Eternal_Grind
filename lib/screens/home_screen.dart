@@ -1,0 +1,450 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../providers/auth_provider.dart';
+import '../providers/theme_provider.dart';
+import '../services/firestore_service.dart';
+import '../models/task_model.dart';
+import '../widgets/add_task_dialog.dart';
+import '../utils/streak_logic.dart';
+import '../theme/colors.dart';
+
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final firestoreService = FirestoreService();
+    final user = authProvider.currentUser;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    if (user == null) return const SizedBox.shrink();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'ETERNAL GRIND',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            letterSpacing: 2,
+            color: isDark ? AppColors.mutedGold : AppColors.deepRed,
+          ),
+        ),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(
+              themeProvider.themeMode == ThemeMode.dark 
+                  ? Icons.light_mode 
+                  : Icons.dark_mode,
+              color: isDark ? AppColors.mutedGold : AppColors.deepRed,
+            ),
+            onPressed: () {
+              final newIsDark = themeProvider.themeMode != ThemeMode.dark;
+              themeProvider.toggleTheme(newIsDark);
+              firestoreService.updateTheme(user.uid, newIsDark);
+            },
+          ),
+          IconButton(
+             icon: Icon(
+               Icons.logout,
+               color: isDark ? AppColors.offWhite : Colors.grey[700],
+             ),
+             onPressed: () => authProvider.signOut(),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: Column(
+        children: [
+          // --- User Stats Header ---
+          StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+            stream: firestoreService.getUserStream(user.uid),
+            builder: (context, snapshot) {
+              int streak = 0;
+              int penalty = 0;
+              if (snapshot.hasData && snapshot.data!.exists) {
+                final data = snapshot.data!.data();
+                streak = data?['currentStreak'] ?? 0;
+                penalty = data?['penalty'] ?? 0;
+              }
+              return Container(
+                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: isDark 
+                        ? [AppColors.charcoal, AppColors.pureBlack]
+                        : [Colors.grey.shade100, Colors.white],
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildStatCard(
+                      context, 
+                      'Streak', 
+                      streak, 
+                      '🔥', 
+                      isDark ? AppColors.mutedGold : Colors.orange,
+                      isDark,
+                    ),
+                    Container(
+                      width: 1,
+                      height: 60,
+                      color: isDark ? AppColors.charcoalLight : Colors.grey.shade300,
+                    ),
+                    _buildStatCard(
+                      context, 
+                      'Penalty', 
+                      penalty, 
+                      '💀', 
+                      isDark ? AppColors.cursedRed : Colors.red,
+                      isDark,
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          
+          // --- Task List ---
+          Expanded(
+            child: StreamBuilder<List<Task>>(
+              stream: firestoreService.getTasksStream(user.uid),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                   return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                   return Center(
+                     child: Text(
+                       'Error: ${snapshot.error}',
+                       style: TextStyle(color: AppColors.cursedRed),
+                     ),
+                   );
+                }
+                
+                final tasks = snapshot.data ?? [];
+                
+                if (tasks.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.fitness_center_rounded,
+                          size: 80,
+                          color: isDark ? AppColors.charcoalLight : Colors.grey.shade400,
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          'THE PATH AWAITS',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 2,
+                            color: isDark ? AppColors.mutedGold : AppColors.deepRed,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Add tasks to begin your discipline journey',
+                          style: TextStyle(
+                            color: isDark ? AppColors.dimWhite : Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final completedCount = tasks.where((t) => t.isCompleted).length;
+                final progress = tasks.isEmpty ? 0.0 : completedCount / tasks.length;
+
+                return Column(
+                  children: [
+                    // Progress indicator
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                "TODAY'S DISCIPLINE",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.5,
+                                  color: isDark ? AppColors.offWhite : Colors.grey.shade800,
+                                ),
+                              ),
+                              Text(
+                                '$completedCount / ${tasks.length}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? AppColors.mutedGold : AppColors.deepRed,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: LinearProgressIndicator(
+                              value: progress,
+                              minHeight: 8,
+                              backgroundColor: isDark ? AppColors.charcoalLight : Colors.grey.shade300,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                progress == 1.0 
+                                    ? (isDark ? AppColors.mutedGold : Colors.green) 
+                                    : (isDark ? AppColors.deepRed : AppColors.deepRed),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    // Task list
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: tasks.length,
+                        itemBuilder: (context, index) {
+                          final task = tasks[index];
+                          return Dismissible(
+                            key: Key(task.id),
+                            direction: DismissDirection.endToStart,
+                            background: Container(
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.only(right: 20),
+                              margin: const EdgeInsets.symmetric(vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppColors.cursedRed,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.delete_rounded,
+                                color: Colors.white,
+                              ),
+                            ),
+                            confirmDismiss: (direction) async {
+                              return await showDialog(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text('Delete Task'),
+                                  content: Text('Delete "${task.title}"?'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.of(ctx).pop(false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () => Navigator.of(ctx).pop(true),
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: AppColors.cursedRed,
+                                      ),
+                                      child: const Text('Delete'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                            onDismissed: (direction) async {
+                              await firestoreService.deleteTask(user.uid, task.id);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Task "${task.title}" deleted'),
+                                    backgroundColor: isDark ? AppColors.charcoal : null,
+                                  ),
+                                );
+                              }
+                            },
+                            child: Card(
+                              margin: const EdgeInsets.symmetric(vertical: 4),
+                              child: ListTile(
+                                leading: Checkbox(
+                                  value: task.isCompleted,
+                                  activeColor: isDark ? AppColors.mutedGold : AppColors.deepRed,
+                                  onChanged: (val) async {
+                                    await firestoreService.toggleTaskStatus(
+                                      user.uid, 
+                                      task.id, 
+                                      val ?? false,
+                                    );
+                                    
+                                    if (val == true) {
+                                      final userDoc = await firestoreService.getUser(user.uid);
+                                      final data = userDoc.data();
+                                      final currentStreak = data?['currentStreak'] ?? 0;
+                                      DateTime? lastTaskDate;
+                                      if (data != null && data['lastTaskDate'] != null) {
+                                         lastTaskDate = (data['lastTaskDate'] as Timestamp).toDate();
+                                      }
+                                      
+                                      final (newStreak, changed) = StreakLogic.calculateNewStreak(
+                                        currentStreak, 
+                                        lastTaskDate,
+                                      );
+                                      
+                                      if (changed) {
+                                         await firestoreService.updateUserStats(
+                                           user.uid, 
+                                           streak: newStreak, 
+                                           lastTaskDate: DateTime.now(),
+                                         );
+                                         
+                                         // Show milestone message
+                                         if (context.mounted && _isMilestone(newStreak)) {
+                                           ScaffoldMessenger.of(context).showSnackBar(
+                                             SnackBar(
+                                               content: Text(
+                                                 _getMilestoneMessage(newStreak),
+                                                 style: const TextStyle(fontWeight: FontWeight.bold),
+                                               ),
+                                               backgroundColor: isDark ? AppColors.mutedGold : Colors.orange,
+                                               duration: const Duration(seconds: 4),
+                                             ),
+                                           );
+                                         }
+                                      } else {
+                                         await firestoreService.updateUserStats(
+                                           user.uid, 
+                                           lastTaskDate: DateTime.now(),
+                                         );
+                                      }
+                                    }
+                                  },
+                                ),
+                                title: Text(
+                                  task.title,
+                                  style: TextStyle(
+                                    decoration: task.isCompleted 
+                                        ? TextDecoration.lineThrough 
+                                        : null,
+                                    color: task.isCompleted 
+                                        ? (isDark ? AppColors.dimWhite : Colors.grey) 
+                                        : null,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                subtitle: task.description.isNotEmpty 
+                                    ? Text(
+                                        task.description,
+                                        style: TextStyle(
+                                          color: isDark ? AppColors.dimWhite : Colors.grey.shade600,
+                                        ),
+                                      ) 
+                                    : null,
+                                trailing: task.isCompleted
+                                    ? Icon(
+                                        Icons.check_circle_rounded,
+                                        color: isDark ? AppColors.mutedGold : Colors.green,
+                                      )
+                                    : null,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          final result = await showDialog<Map<String, String>>(
+            context: context,
+            builder: (_) => const AddTaskDialog(),
+          );
+          
+          if (result != null) {
+            await firestoreService.addTask(
+              user.uid,
+              result['title']!,
+              result['description']!,
+            );
+          }
+        },
+        backgroundColor: isDark ? AppColors.deepRed : AppColors.deepRed,
+        foregroundColor: Colors.white,
+        label: const Text(
+          'ADD TASK',
+          style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1),
+        ),
+        icon: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _buildStatCard(
+    BuildContext context, 
+    String label, 
+    int value, 
+    String emoji, 
+    Color color,
+    bool isDark,
+  ) {
+    return Column(
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '$value',
+              style: TextStyle(
+                fontSize: 36,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(emoji, style: const TextStyle(fontSize: 28)),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.5,
+            color: isDark ? AppColors.dimWhite : Colors.grey.shade600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  bool _isMilestone(int streak) {
+    return streak == 10 || streak == 20 || streak == 50 || streak == 100 || streak == 150;
+  }
+
+  String _getMilestoneMessage(int streak) {
+    switch (streak) {
+      case 10:
+        return '🔥 10 days! Your discipline grows stronger!';
+      case 20:
+        return '⚔️ 20 days! A warrior emerges!';
+      case 50:
+        return '🛡️ 50 days! You have earned a Relief Day!';
+      case 100:
+        return '👑 100 days! A legend in the making!';
+      case 150:
+        return '🌟 150 days! You have achieved mastery!';
+      default:
+        return '🔥 Milestone achieved!';
+    }
+  }
+}

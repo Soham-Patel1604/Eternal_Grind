@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "659328012433",
+    "project_id": "eternal-grind",
+    "storage_bucket": "eternal-grind.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:659328012433:android:b53f0ca58945d36be0af30",
+        "android_client_info": {
+          "package_name": "com.example.eternal_grind"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDE-5V1njfeDbDmdaelgYbjHnKje_S5KCM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
