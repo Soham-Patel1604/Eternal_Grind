@@ -33,8 +33,12 @@ class Task {
       title: map['title'] ?? '',
       description: map['description'] ?? '',
       isCompleted: map['isCompleted'] ?? false,
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
-      completedAt: map['completedAt'] != null ? (map['completedAt'] as Timestamp).toDate() : null,
+      createdAt: map['createdAt'] != null 
+          ? (map['createdAt'] as Timestamp).toDate() 
+          : DateTime.now(),
+      completedAt: map['completedAt'] != null 
+          ? (map['completedAt'] as Timestamp).toDate() 
+          : null,
     );
   }
 }

@@ -8,9 +8,17 @@ import '../models/task_model.dart';
 import '../widgets/add_task_dialog.dart';
 import '../utils/streak_logic.dart';
 import '../theme/colors.dart';
+import 'calendar_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  DateTime _selectedDate = DateTime.now();
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +45,43 @@ class HomeScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: Icon(
+              Icons.date_range_rounded,
+              color: isDark ? AppColors.mutedGold : AppColors.deepRed,
+            ),
+            onPressed: () async {
+              final DateTime? picked = await showDatePicker(
+                context: context,
+                initialDate: _selectedDate,
+                firstDate: DateTime(2020),
+                lastDate: DateTime.now().add(const Duration(days: 365)),
+              );
+              if (picked != null && picked != _selectedDate) {
+                setState(() {
+                  _selectedDate = picked;
+                });
+              }
+            },
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.calendar_month_rounded,
+              color: isDark ? AppColors.mutedGold : AppColors.deepRed,
+            ),
+            onPressed: () async {
+              final DateTime? picked = await Navigator.of(context).push<DateTime>(
+                MaterialPageRoute(
+                  builder: (_) => CalendarScreen(initialDate: _selectedDate),
+                ),
+              );
+              if (picked != null && picked != _selectedDate) {
+                setState(() {
+                  _selectedDate = picked;
+                });
+              }
+            },
+          ),
+          IconButton(
+            icon: Icon(
               themeProvider.themeMode == ThemeMode.dark 
                   ? Icons.light_mode 
                   : Icons.dark_mode,
@@ -61,61 +106,118 @@ class HomeScreen extends StatelessWidget {
       body: Column(
         children: [
           // --- User Stats Header ---
-          StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-            stream: firestoreService.getUserStream(user.uid),
-            builder: (context, snapshot) {
-              int streak = 0;
-              int penalty = 0;
-              if (snapshot.hasData && snapshot.data!.exists) {
-                final data = snapshot.data!.data();
-                streak = data?['currentStreak'] ?? 0;
-                penalty = data?['penalty'] ?? 0;
-              }
-              return Container(
-                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: isDark 
-                        ? [AppColors.charcoal, AppColors.pureBlack]
-                        : [Colors.grey.shade100, Colors.white],
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: isDark 
+                    ? [AppColors.charcoal, AppColors.pureBlack]
+                    : [Colors.grey.shade100, Colors.white],
+              ),
+            ),
+            child: Column(
+              children: [
+                // Date selector
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildStatCard(
-                      context, 
-                      'Streak', 
-                      streak, 
-                      '🔥', 
-                      isDark ? AppColors.mutedGold : Colors.orange,
-                      isDark,
+                    Text(
+                      _formatDate(_selectedDate),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? AppColors.mutedGold : AppColors.deepRed,
+                      ),
                     ),
-                    Container(
-                      width: 1,
-                      height: 60,
-                      color: isDark ? AppColors.charcoalLight : Colors.grey.shade300,
-                    ),
-                    _buildStatCard(
-                      context, 
-                      'Penalty', 
-                      penalty, 
-                      '💀', 
-                      isDark ? AppColors.cursedRed : Colors.red,
-                      isDark,
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: Icon(
+                            Icons.chevron_left,
+                            color: isDark ? AppColors.mutedGold : AppColors.deepRed,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _selectedDate = _selectedDate.subtract(const Duration(days: 1));
+                            });
+                          },
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            Icons.today_rounded,
+                            color: isDark ? AppColors.mutedGold : AppColors.deepRed,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _selectedDate = DateTime.now();
+                            });
+                          },
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            Icons.chevron_right,
+                            color: isDark ? AppColors.mutedGold : AppColors.deepRed,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _selectedDate = _selectedDate.add(const Duration(days: 1));
+                            });
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              );
-            },
+                const SizedBox(height: 16),
+                // Stats row
+                StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                  stream: firestoreService.getUserStream(user.uid),
+                  builder: (context, snapshot) {
+                    int streak = 0;
+                    int penalty = 0;
+                    if (snapshot.hasData && snapshot.data!.exists) {
+                      final data = snapshot.data!.data();
+                      streak = data?['currentStreak'] ?? 0;
+                      penalty = data?['penalty'] ?? 0;
+                    }
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildStatCard(
+                          context, 
+                          'Streak', 
+                          streak, 
+                          '🔥', 
+                          isDark ? AppColors.mutedGold : Colors.orange,
+                          isDark,
+                        ),
+                        Container(
+                          width: 1,
+                          height: 60,
+                          color: isDark ? AppColors.charcoalLight : Colors.grey.shade300,
+                        ),
+                        _buildStatCard(
+                          context, 
+                          'Penalty', 
+                          penalty, 
+                          '💀', 
+                          isDark ? AppColors.cursedRed : Colors.red,
+                          isDark,
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
           
           // --- Task List ---
           Expanded(
             child: StreamBuilder<List<Task>>(
-              stream: firestoreService.getTasksStream(user.uid),
+              stream: firestoreService.getTasksForDateStream(user.uid, _selectedDate),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                    return const Center(child: CircularProgressIndicator());
@@ -143,7 +245,7 @@ class HomeScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 24),
                         Text(
-                          'THE PATH AWAITS',
+                          'NO TASKS FOR THIS DATE',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -153,7 +255,7 @@ class HomeScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Add tasks to begin your discipline journey',
+                          'Add tasks or select a different date',
                           style: TextStyle(
                             color: isDark ? AppColors.dimWhite : Colors.grey.shade600,
                           ),
@@ -374,6 +476,7 @@ class HomeScreen extends StatelessWidget {
               user.uid,
               result['title']!,
               result['description']!,
+              createdAt: _selectedDate,
             );
           }
         },
@@ -446,5 +549,13 @@ class HomeScreen extends StatelessWidget {
       default:
         return '🔥 Milestone achieved!';
     }
+  }
+
+  String _formatDate(DateTime date) {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 }
