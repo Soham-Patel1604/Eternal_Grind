@@ -27,7 +27,10 @@ class _LoginScreenState extends State<LoginScreen> {
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
-      // No navigation needed - AuthWrapper handles it
+      // Navigate to home screen after successful login
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/home');
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

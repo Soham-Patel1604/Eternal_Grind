@@ -6,6 +6,7 @@ import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/calendar_screen.dart';
 import 'services/auth_service.dart';
 import 'services/local_storage_service.dart';
 import 'widgets/auth_wrapper.dart';
@@ -57,6 +58,7 @@ class MyApp extends StatelessWidget {
             routes: {
                '/login': (context) => const LoginScreen(),
                '/home': (context) => const HomeScreen(),
+               '/calendar': (context) => const CalendarScreen(),
             },
           );
         },

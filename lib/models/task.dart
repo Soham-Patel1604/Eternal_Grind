@@ -12,10 +12,13 @@ class Task {
   bool isCompleted;
   @HiveField(3)
   final DateTime createdAt;
+  @HiveField(4)
+  String description;
 
   Task({
     required this.id,
     required this.title,
+    this.description = '',
     this.isCompleted = false,
     required this.createdAt,
   });
@@ -25,12 +28,14 @@ class Task {
     String? title,
     bool? isCompleted,
     DateTime? createdAt,
+    String? description,
   }) {
     return Task(
       id: id ?? this.id,
       title: title ?? this.title,
       isCompleted: isCompleted ?? this.isCompleted,
       createdAt: createdAt ?? this.createdAt,
+      description: description ?? this.description,
     );
   }
 
@@ -38,6 +43,7 @@ class Task {
     return {
       'id': id,
       'title': title,
+      'description': description,
       'isCompleted': isCompleted,
       'createdAt': createdAt.toIso8601String(),
     };
@@ -47,6 +53,7 @@ class Task {
     return Task(
       id: json['id'],
       title: json['title'],
+      description: json['description'] ?? '',
       isCompleted: json['isCompleted'],
       createdAt: DateTime.parse(json['createdAt']),
     );

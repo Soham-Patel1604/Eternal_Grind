@@ -56,13 +56,15 @@ class FirestoreService {
 
   // --- Task Methods ---
 
-  Future<void> addTask(String uid, String title, String description) async {
+  Future<void> addTask(String uid, String title, String description, {DateTime? createdAt}) async {
     try {
       await _db.collection('users').doc(uid).collection('tasks').add({
         'title': title,
         'description': description,
         'isCompleted': false,
-        'createdAt': FieldValue.serverTimestamp(),
+        'createdAt': createdAt != null 
+            ? Timestamp.fromDate(createdAt)
+            : FieldValue.serverTimestamp(),
         'completedAt': null,
       });
     } catch (e) {
@@ -80,6 +82,41 @@ class FirestoreService {
         .map((snapshot) => snapshot.docs
             .map((doc) => Task.fromMap(doc.id, doc.data()))
             .toList());
+  }
+
+  Stream<List<Task>> getTasksForDateStream(String uid, DateTime date) {
+    final startOfDay = DateTime(date.year, date.month, date.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+    
+    return _db
+        .collection('users')
+        .doc(uid)
+        .collection('tasks')
+        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+        .where('createdAt', isLessThan: Timestamp.fromDate(endOfDay))
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Task.fromMap(doc.id, doc.data()))
+            .toList());
+  }
+
+  Future<List<Task>> getTasksForDate(String uid, DateTime date) async {
+    final startOfDay = DateTime(date.year, date.month, date.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+    
+    final snapshot = await _db
+        .collection('users')
+        .doc(uid)
+        .collection('tasks')
+        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+        .where('createdAt', isLessThan: Timestamp.fromDate(endOfDay))
+        .orderBy('createdAt', descending: true)
+        .get();
+    
+    return snapshot.docs
+        .map((doc) => Task.fromMap(doc.id, doc.data()))
+        .toList();
   }
 
   Future<void> toggleTaskStatus(String uid, String taskId, bool isCompleted) async {
